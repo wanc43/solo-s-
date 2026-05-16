@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -66,22 +66,30 @@ export default function Products() {
 
   const brands = Array.from(new Set(products.map(p => p.brand))).sort() as string[];
 
-  const filteredProducts = products.filter(p => {
-    const matchesCategory = categoryFilter === "all" || p.category === categoryFilter;
-    const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                         p.brand.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesBrand = selectedBrands.length === 0 || selectedBrands.includes(p.brand);
-    const matchesPrice = p.price >= priceRange[0] && p.price <= priceRange[1];
-    const matchesRating = p.rating >= minRating;
-    
-    return matchesCategory && matchesSearch && matchesBrand && matchesPrice && matchesRating;
-  }).sort((a, b) => {
-    if (sortBy === "price-low") return a.price - b.price;
-    if (sortBy === "price-high") return b.price - a.price;
-    if (sortBy === "rating") return b.rating - a.rating;
-    if (sortBy === "newest") return b.createdAt - a.createdAt;
-    return (b.featured ? 1 : 0) - (a.featured ? 1 : 0);
-  });
+  const filteredProducts = useMemo(() => {
+    return products.filter(p => {
+      const matchesCategory = categoryFilter === "all" || p.category === categoryFilter;
+      const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                           p.brand.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesBrand = selectedBrands.length === 0 || selectedBrands.includes(p.brand);
+      const matchesPrice = p.price >= priceRange[0] && p.price <= priceRange[1];
+      const matchesRating = p.rating >= minRating;
+      
+      return matchesCategory && matchesSearch && matchesBrand && matchesPrice && matchesRating;
+    }).sort((a, b) => {
+      if (sortBy === "price-low") return a.price - b.price;
+      if (sortBy === "price-high") return b.price - a.price;
+      if (sortBy === "rating") return b.rating - a.rating;
+      if (sortBy === "newest") {
+        const dateA = a.createdAt?.seconds || 0;
+        const dateB = b.createdAt?.seconds || 0;
+        return dateB - dateA;
+      }
+      const featA = a.featured ? 1 : 0;
+      const featB = b.featured ? 1 : 0;
+      return featB - featA;
+    });
+  }, [products, categoryFilter, searchTerm, selectedBrands, priceRange, minRating, sortBy]);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;

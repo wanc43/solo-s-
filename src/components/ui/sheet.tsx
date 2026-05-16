@@ -16,6 +16,7 @@ function SheetTrigger(props: SheetPrimitive.Trigger.Props & { asChild?: boolean 
   return (
     <SheetPrimitive.Trigger 
       data-slot="sheet-trigger" 
+      nativeButton={!asChild}
       render={asChild ? children : rest.render}
       {...rest} 
     >
@@ -29,6 +30,7 @@ function SheetClose(props: SheetPrimitive.Close.Props & { asChild?: boolean }) {
   return (
     <SheetPrimitive.Close 
       data-slot="sheet-close" 
+      nativeButton={!asChild}
       render={asChild ? children : rest.render}
       {...rest} 
     >
