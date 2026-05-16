@@ -1,0 +1,6 @@
+{
+  "name": "Solo's Phones & Electronics",
+  "description": "Premium ecommerce destination for smartphones, laptops, and high-end electronics. Experience modern shopping with secure checkout and professional service.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

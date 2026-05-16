@@ -1,0 +1,129 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "role": { "type": "string", "enum": ["customer", "admin"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Category": {
+      "title": "Product Category",
+      "description": "Electronic categories like Phones, Laptops, etc.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "slug": { "type": "string" },
+        "image": { "type": "string" }
+      },
+      "required": ["name", "slug"]
+    },
+    "Product": {
+      "title": "Electronic Product",
+      "description": "Items sold in the store",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "slug": { "type": "string" },
+        "description": { "type": "string" },
+        "price": { "type": "number" },
+        "stock_quantity": { "type": "integer" },
+        "image": { "type": "string" },
+        "images": { "type": "array", "items": { "type": "string" } },
+        "category": { "type": "string" },
+        "brand": { "type": "string" },
+        "featured": { "type": "boolean" },
+        "rating": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "slug", "price", "category", "stock_quantity"]
+    },
+    "Cart": {
+      "title": "Shopping Cart",
+      "description": "User shopping cart",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "items": { "type": "array", "items": { "$ref": "#/entities/CartItem" } },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "CartItem": {
+      "title": "Cart Item",
+      "type": "object",
+      "properties": {
+        "productId": { "type": "string" },
+        "quantity": { "type": "integer" },
+        "price": { "type": "number" }
+      }
+    },
+    "Wishlist": {
+      "title": "Wishlist",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "productIds": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "Order": {
+      "title": "Purchase Order",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "items": { "type": "array", "items": { "$ref": "#/entities/OrderItem" } },
+        "total": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "processing", "shipped", "delivered", "cancelled"] },
+        "paymentMethod": { "type": "string" },
+        "shippingAddress": { "type": "string" },
+        "contactNumber": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "OrderItem": {
+      "title": "Order Item",
+      "type": "object",
+      "properties": {
+        "productId": { "type": "string" },
+        "name": { "type": "string" },
+        "quantity": { "type": "integer" },
+        "price": { "type": "number" }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile documents"
+    },
+    "/categories/{categoryId}": {
+      "schema": "Category",
+      "description": "Product categories"
+    },
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Product listings"
+    },
+    "/carts/{userId}": {
+      "schema": "Cart",
+      "description": "Active shopping carts"
+    },
+    "/wishlists/{userId}": {
+      "schema": "Wishlist",
+      "description": "User wishlists"
+    },
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Sales orders"
+    }
+  }
+}
