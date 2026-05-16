@@ -32,8 +32,10 @@ export interface Product {
   brand: string;
   featured: boolean;
   rating: number;
-  createdAt: string;
-  updatedAt: string;
+  reviews?: number;
+  specs?: Record<string, any>;
+  createdAt: any;
+  updatedAt: any;
 }
 
 export interface CartItem {
@@ -42,6 +44,7 @@ export interface CartItem {
   price: number;
   name: string;
   image: string;
+  brand: string;
 }
 
 export interface Cart {
@@ -54,10 +57,25 @@ export interface Order {
   id: string;
   userId: string;
   items: CartItem[];
-  total: number;
+  totalAmount: number;
   status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
   paymentMethod: string;
-  shippingAddress: string;
-  contactNumber: string;
-  createdAt: string;
+  shippingDetails: {
+    fullName: string;
+    phone: string;
+    address: string;
+    city: string;
+    district: string;
+  };
+  createdAt: any;
+}
+
+export interface Review {
+  id: string;
+  productId: string;
+  userId: string;
+  userName: string;
+  rating: number;
+  comment: string;
+  createdAt: any;
 }

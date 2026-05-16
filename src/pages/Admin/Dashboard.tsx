@@ -1,14 +1,30 @@
-import React from "react";
-import { Link, Routes, Route, useLocation } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { Link, Routes, Route, useLocation, useNavigate } from "react-router-dom";
 import { 
   LayoutDashboard, Package, ShoppingCart, Users, Settings, TrendingUp, 
-  ArrowUpRight, ArrowDownRight, PackagePlus, Bell, Search, LogOut 
+  ArrowUpRight, ArrowDownRight, PackagePlus, Bell, Search, LogOut, Database, Loader2,
+  ShieldCheck
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import { db } from "@/lib/firebase";
+import { collection, doc, writeBatch, serverTimestamp } from "firebase/firestore";
+import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
+
+const PRODUCTS_SEED = [
+  { name: "iPhone 15 Pro Max", brand: "Apple", price: 1199, image: "https://images.unsplash.com/photo-1696446701796-da61225697cc?w=800", rating: 4.9, category: "smartphones", stock_quantity: 50, slug: "iphone-15-pro-max", featured: true },
+  { name: "MacBook Air M3", brand: "Apple", price: 1099, image: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=800", rating: 4.8, category: "laptops", stock_quantity: 30, slug: "macbook-air-m3", featured: true },
+  { name: "Sony WH-1000XM5", brand: "Sony", price: 399, image: "https://images.unsplash.com/photo-1618366712214-8c075189d0ad?w=800", rating: 4.7, category: "audio", stock_quantity: 100, slug: "sony-wh-1000xm5", featured: true },
+  { name: "Samsung S24 Ultra", brand: "Samsung", price: 1299, image: "https://images.unsplash.com/photo-1707064841961-73602d504505?w=800", rating: 4.9, category: "smartphones", stock_quantity: 40, slug: "samsung-s24-ultra" },
+  { name: "Apple Watch Ultra 2", brand: "Apple", price: 799, image: "https://images.unsplash.com/photo-1610461888750-10bfc601b874?w=800", rating: 4.8, category: "smart-watches", stock_quantity: 25, slug: "apple-watch-ultra-2" },
+  { name: "iPad Pro M2", brand: "Apple", price: 999, image: "https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=800", rating: 4.8, category: "tablets", stock_quantity: 15, slug: "ipad-pro-m2" },
+  { name: "ROG Ally X", brand: "ASUS", price: 799, image: "https://images.unsplash.com/photo-1621259182978-fbf93132d53d?w=800", rating: 4.6, category: "gaming", stock_quantity: 20, slug: "rog-ally-x" },
+  { name: "Logitech MX Master 3S", brand: "Logitech", price: 99, image: "https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=800", rating: 4.9, category: "accessories", stock_quantity: 150, slug: "logitech-mx-master-3s" },
+];
 
 const SIDEBAR_ITEMS = [
   { name: "Overview", icon: LayoutDashboard, path: "/admin" },
@@ -19,7 +35,53 @@ const SIDEBAR_ITEMS = [
 ];
 
 export default function AdminDashboard() {
+  const { user, profile, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
   const location = useLocation();
+  const [isSeeding, setIsSeeding] = useState(false);
+
+  useEffect(() => {
+    if (!authLoading && (!user || profile?.role !== 'admin')) {
+      toast.error("Unauthorized access.");
+      navigate("/");
+    }
+  }, [user, profile, authLoading, navigate]);
+
+  if (authLoading) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-primary animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user || profile?.role !== 'admin') {
+    return null;
+  }
+
+  const seedDatabase = async () => {
+    setIsSeeding(true);
+    const batch = writeBatch(db);
+    
+    try {
+      PRODUCTS_SEED.forEach((product) => {
+        const productRef = doc(collection(db, "products"));
+        batch.set(productRef, {
+          ...product,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+      });
+      
+      await batch.commit();
+      toast.success("Database seeded successfully!");
+    } catch (error) {
+      console.error("Error seeding database:", error);
+      toast.error("Failed to seed database.");
+    } finally {
+      setIsSeeding(false);
+    }
+  };
 
   return (
     <div className="flex h-screen bg-zinc-50 dark:bg-zinc-950 overflow-hidden">
@@ -157,9 +219,18 @@ export default function AdminDashboard() {
                           <PackagePlus className="w-6 h-6" />
                           Add Product
                        </Button>
-                       <Button variant="outline" className="w-full h-14 rounded-2xl gap-3 font-bold border-zinc-200 dark:border-zinc-800">
-                          <Users className="w-6 h-6" />
-                          Invite Member
+                       <Button 
+                          variant="outline" 
+                          className="w-full h-14 rounded-2xl gap-3 font-bold border-zinc-200 dark:border-zinc-800"
+                          onClick={seedDatabase}
+                          disabled={isSeeding}
+                       >
+                          {isSeeding ? (
+                            <Loader2 className="w-6 h-6 animate-spin" />
+                          ) : (
+                            <Database className="w-6 h-6" />
+                          )}
+                          Seed Database
                        </Button>
                        <div className="pt-6">
                           <h4 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-4">Storage Usage</h4>

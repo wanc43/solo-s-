@@ -1,3 +1,4 @@
+import React, { useState } from "react";
 import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -5,34 +6,97 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { CreditCard, Truck, ShieldCheck, MapPin, Phone, User, Landmark, Smartphone, ArrowRight, CheckCircle2 } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate, Link } from "react-router-dom";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "motion/react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { db } from "@/lib/firebase";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { handleFirestoreError, OperationType } from "@/lib/firestore-utils";
+import axios from "axios";
 
 export default function Checkout() {
   const { cart, cartTotal, clearCart } = useCart();
+  const { user } = useAuth();
   const navigate = useNavigate();
-  const [step, setStep] = React.useState(1);
-  const [paymentMethod, setPaymentMethod] = React.useState("momo");
-  const [isProcessing, setIsProcessing] = React.useState(false);
+  const [step, setStep] = useState(1);
+  const [paymentMethod, setPaymentMethod] = useState("momo");
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [orderId, setOrderId] = useState("");
 
-  const handlePlaceOrder = () => {
+  const [formData, setFormData] = useState({
+    fullName: "",
+    phone: "",
+    address: "",
+    city: "Kampala",
+    district: "Central",
+    momoNumber: ""
+  });
+
+  const handlePlaceOrder = async () => {
+    if (!user) {
+      toast.error("Please login to place an order");
+      navigate("/login");
+      return;
+    }
+
     setIsProcessing(true);
-    // Simulate payment processing
-    setTimeout(() => {
-      setIsProcessing(false);
+    try {
+      const orderData = {
+        userId: user.uid,
+        items: cart,
+        totalAmount: cartTotal,
+        paymentMethod,
+        shippingDetails: {
+          fullName: formData.fullName,
+          phone: formData.phone,
+          address: formData.address,
+          city: formData.city,
+          district: formData.district
+        },
+        status: 'pending',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      };
+
+      const docRef = await addDoc(collection(db, "orders"), orderData);
+      const newOrderId = docRef.id;
+      setOrderId(newOrderId);
+      
+      // Send confirmation email
+      try {
+        await axios.post("/api/orders/confirm", {
+          orderId: newOrderId,
+          userEmail: user.email,
+          items: cart.map(item => ({ name: item.name, quantity: item.quantity, price: item.price })),
+          totalAmount: cartTotal
+        });
+      } catch (emailError) {
+        console.error("Failed to send confirmation email:", emailError);
+        // Don't fail the order just because the email failed
+      }
+
       toast.success("Order placed successfully!");
       clearCart();
       setStep(3);
-    }, 2000);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, "orders");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   if (cart.length === 0 && step < 3) {
     navigate("/cart");
     return null;
   }
+
+  const updateFormData = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -71,30 +135,30 @@ export default function Checkout() {
                          <h2 className="text-2xl font-bold tracking-tight">Delivery Details</h2>
                       </div>
                       
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2">
                            <label className="text-xs font-black uppercase tracking-widest text-muted-foreground">Full Name</label>
-                           <Input placeholder="John Doe" className="h-12 rounded-xl" />
+                           <Input name="fullName" value={formData.fullName} onChange={updateFormData} placeholder="John Doe" className="h-12 rounded-xl" />
                         </div>
                         <div className="space-y-2">
                            <label className="text-xs font-black uppercase tracking-widest text-muted-foreground">Phone Number</label>
-                           <Input placeholder="+256 700 000 000" className="h-12 rounded-xl" />
+                           <Input name="phone" value={formData.phone} onChange={updateFormData} placeholder="+256 700 000 000" className="h-12 rounded-xl" />
                         </div>
                       </div>
                       
                       <div className="space-y-2">
                          <label className="text-xs font-black uppercase tracking-widest text-muted-foreground">Shipping Address (Uganda)</label>
-                         <Input placeholder="Apartment, Street, Area" className="h-12 rounded-xl" />
+                         <Input name="address" value={formData.address} onChange={updateFormData} placeholder="Apartment, Street, Area" className="h-12 rounded-xl" />
                       </div>
                       
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2">
                            <label className="text-xs font-black uppercase tracking-widest text-muted-foreground">City</label>
-                           <Input placeholder="Kampala" className="h-12 rounded-xl" />
+                           <Input name="city" value={formData.city} onChange={updateFormData} placeholder="Kampala" className="h-12 rounded-xl" />
                         </div>
                         <div className="space-y-2">
                            <label className="text-xs font-black uppercase tracking-widest text-muted-foreground">District</label>
-                           <Input placeholder="Central" className="h-12 rounded-xl" />
+                           <Input name="district" value={formData.district} onChange={updateFormData} placeholder="Central" className="h-12 rounded-xl" />
                         </div>
                       </div>
                    </section>
@@ -168,7 +232,7 @@ export default function Checkout() {
                            </div>
                            <div className="space-y-2">
                               <label className="text-[10px] font-black uppercase tracking-widest text-black/60">Phone Number to Charge</label>
-                              <Input placeholder="077XXXXXXX" className="h-12 rounded-xl bg-white/20 border-black/10 text-black placeholder:text-black/40 font-bold" />
+                              <Input name="momoNumber" value={formData.momoNumber} onChange={updateFormData} placeholder="077XXXXXXX" className="h-12 rounded-xl bg-white/20 border-black/10 text-black placeholder:text-black/40 font-bold" />
                            </div>
                            <p className="text-xs text-black/70 font-medium">You will receive a USSD prompt on your phone to authorize payment of ${cartTotal.toLocaleString()}.</p>
                         </motion.div>

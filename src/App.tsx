@@ -15,29 +15,32 @@ const AdminDashboard = React.lazy(() => import("@/pages/Admin/Dashboard"));
 
 import { AuthProvider } from "./contexts/AuthContext";
 import { CartProvider } from "./contexts/CartContext";
+import { WishlistProvider } from "./contexts/WishlistContext";
 
 export default function App() {
   return (
     <AuthProvider>
       <CartProvider>
-        <BrowserRouter>
-          <div className="min-h-screen bg-background font-sans antialiased">
-            <React.Suspense fallback={<div className="h-screen w-screen flex items-center justify-center">Loading...</div>}>
-              <Routes>
-                <Route path="/" element={<Home />} />
-                <Route path="/products" element={<Products />} />
-                <Route path="/products/:slug" element={<ProductDetail />} />
-                <Route path="/cart" element={<Cart />} />
-                <Route path="/checkout" element={<Checkout />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/register" element={<Register />} />
-                <Route path="/profile" element={<Profile />} />
-                <Route path="/admin/*" element={<AdminDashboard />} />
-              </Routes>
-            </React.Suspense>
-            <Toaster position="top-center" richColors />
-          </div>
-        </BrowserRouter>
+        <WishlistProvider>
+          <BrowserRouter>
+            <div className="min-h-screen bg-background font-sans antialiased">
+              <React.Suspense fallback={<div className="h-screen w-screen flex items-center justify-center">Loading...</div>}>
+                <Routes>
+                  <Route path="/" element={<Home />} />
+                  <Route path="/products" element={<Products />} />
+                  <Route path="/products/:id" element={<ProductDetail />} />
+                  <Route path="/cart" element={<Cart />} />
+                  <Route path="/checkout" element={<Checkout />} />
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/register" element={<Register />} />
+                  <Route path="/profile" element={<Profile />} />
+                  <Route path="/admin/*" element={<AdminDashboard />} />
+                </Routes>
+              </React.Suspense>
+              <Toaster position="top-center" richColors />
+            </div>
+          </BrowserRouter>
+        </WishlistProvider>
       </CartProvider>
     </AuthProvider>
   );

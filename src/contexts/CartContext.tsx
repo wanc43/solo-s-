@@ -35,6 +35,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         name: product.name,
         price: product.price,
         image: product.image,
+        brand: product.brand,
         quantity
       }];
     });

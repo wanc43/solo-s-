@@ -40,18 +40,26 @@ const buttonVariants = cva(
   }
 )
 
-function Button({
-  className,
-  variant = "default",
-  size = "default",
-  ...props
-}: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
+function Button(props: ButtonPrimitive.Props & VariantProps<typeof buttonVariants> & { asChild?: boolean }) {
+  const {
+    className,
+    variant = "default",
+    size = "default",
+    asChild,
+    children,
+    ...rest
+  } = props
+
   return (
     <ButtonPrimitive
+      nativeButton={!asChild}
+      render={asChild ? children : rest.render}
       data-slot="button"
       className={cn(buttonVariants({ variant, size, className }))}
-      {...props}
-    />
+      {...rest}
+    >
+      {!asChild && children}
+    </ButtonPrimitive>
   )
 }
 

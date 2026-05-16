@@ -3,10 +3,15 @@ import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "motion/react";
-import { Smartphone, Laptop, Headphones, Watch, Speaker, Tablet, Gamepad, Zap, ArrowRight, Star, ShoppingBag, Truck, ShieldCheck, Clock, Heart } from "lucide-react";
+import { Smartphone, Laptop, Headphones, Watch, Speaker, Tablet, Gamepad, Zap, ArrowRight, Star, ShoppingBag, Truck, ShieldCheck, Clock, Heart, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
+import { db } from "@/lib/firebase";
+import { collection, query, where, getDocs, limit } from "firebase/firestore";
+import { useCart } from "@/contexts/CartContext";
+import { Product } from "@/types";
+import { handleFirestoreError, OperationType } from "@/lib/firestore-utils";
 
 const CATEGORIES = [
   { name: "Phones", icon: Smartphone, count: "120+", color: "bg-blue-500/10 text-blue-500", slug: "smartphones" },
@@ -17,37 +22,32 @@ const CATEGORIES = [
   { name: "Gaming", icon: Gamepad, count: "60+", color: "bg-red-500/10 text-red-500", slug: "gaming" },
 ];
 
-const FEATURED_PRODUCTS = [
-  {
-    id: "1",
-    name: "iPhone 15 Pro Max",
-    brand: "Apple",
-    price: 1199,
-    image: "https://images.unsplash.com/photo-1696446701796-da61225697cc?auto=format&fit=crop&q=80&w=800",
-    rating: 4.9,
-    featured: true,
-  },
-  {
-    id: "2",
-    name: "MacBook Air M3",
-    brand: "Apple",
-    price: 1099,
-    image: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&q=80&w=800",
-    rating: 4.8,
-    featured: true,
-  },
-  {
-    id: "3",
-    name: "Sony WH-1000XM5",
-    brand: "Sony",
-    price: 399,
-    image: "https://images.unsplash.com/photo-1618366712214-8c075189d0ad?auto=format&fit=crop&q=80&w=800",
-    rating: 4.7,
-    featured: true,
-  },
-];
-
 export default function Home() {
+  const { addToCart } = useCart();
+  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchFeatured() {
+      setLoading(true);
+      try {
+        const productsRef = collection(db, "products");
+        const q = query(productsRef, where("featured", "==", true), limit(3));
+        const querySnapshot = await getDocs(q);
+        const data = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as Product[];
+        setFeaturedProducts(data);
+      } catch (error) {
+        handleFirestoreError(error, OperationType.LIST, "products");
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchFeatured();
+  }, []);
+
   return (
     <div className="flex flex-col min-h-screen">
       <Navbar />
@@ -158,7 +158,11 @@ export default function Home() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {FEATURED_PRODUCTS.map((product, i) => (
+              {loading ? (
+                Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="aspect-square rounded-3xl bg-zinc-100 dark:bg-zinc-800 animate-pulse" />
+                ))
+              ) : featuredProducts.map((product, i) => (
                 <motion.div
                   key={product.id}
                   initial={{ opacity: 0, y: 20 }}
@@ -185,7 +189,10 @@ export default function Home() {
                       <Heart className="w-5 h-5" />
                     </Button>
                     <div className="absolute inset-x-0 bottom-0 p-6 translate-y-full group-hover:translate-y-0 transition-transform duration-300 bg-gradient-to-t from-black/60 to-transparent">
-                      <Button className="w-full h-12 bg-white text-black hover:bg-white/90 font-bold">
+                      <Button 
+                        className="w-full h-12 bg-white text-black hover:bg-white/90 font-bold"
+                        onClick={() => addToCart(product)}
+                      >
                         <ShoppingBag className="w-5 h-5 mr-2" /> Add to Cart
                       </Button>
                     </div>
@@ -194,7 +201,9 @@ export default function Home() {
                     <div className="flex justify-between items-start mb-2">
                       <div>
                         <p className="text-xs text-muted-foreground uppercase font-bold tracking-widest mb-1">{product.brand}</p>
-                        <h3 className="text-xl font-bold group-hover:text-primary transition-colors line-clamp-1">{product.name}</h3>
+                        <h3 className="text-xl font-bold group-hover:text-primary transition-colors line-clamp-1">
+                          <Link to={`/products/${product.id}`}>{product.name}</Link>
+                        </h3>
                       </div>
                       <div className="flex items-center gap-1 bg-yellow-400/10 text-yellow-600 px-2 py-0.5 rounded text-xs font-bold">
                         <Star className="w-3 h-3 fill-current" />
