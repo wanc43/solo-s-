@@ -3,15 +3,13 @@ import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "motion/react";
-import { Smartphone, Laptop, Headphones, Watch, Speaker, Tablet, Gamepad, Zap, ArrowRight, Star, ShoppingBag, Truck, ShieldCheck, Clock, Heart, Loader2 } from "lucide-react";
+import { Smartphone, Laptop, Headphones, Watch, Speaker, Gamepad, Zap, ArrowRight, Star, ShoppingBag, Truck, ShieldCheck, Clock, Heart, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
-import { db } from "@/lib/firebase";
-import { collection, query, where, getDocs, limit } from "firebase/firestore";
 import { useCart } from "@/contexts/CartContext";
 import { Product } from "@/types";
-import { handleFirestoreError, OperationType } from "@/lib/firestore-utils";
+import api from "@/services/api";
 
 const CATEGORIES = [
   { name: "Phones", icon: Smartphone, count: "120+", color: "bg-blue-500/10 text-blue-500", slug: "smartphones" },
@@ -31,16 +29,10 @@ export default function Home() {
     async function fetchFeatured() {
       setLoading(true);
       try {
-        const productsRef = collection(db, "products");
-        const q = query(productsRef, where("featured", "==", true), limit(3));
-        const querySnapshot = await getDocs(q);
-        const data = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as Product[];
-        setFeaturedProducts(data);
+        const response = await api.get('/products/?featured=true&limit=3');
+        setFeaturedProducts(response.data);
       } catch (error) {
-        handleFirestoreError(error, OperationType.LIST, "products");
+        console.error("Error fetching featured products:", error);
       } finally {
         setLoading(false);
       }

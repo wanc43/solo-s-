@@ -1,20 +1,18 @@
 import React, { useEffect, useState } from "react";
 import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ShoppingBag, Package, MapPin, Heart, LogOut, ChevronRight, Loader2, ShieldCheck } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { db } from "@/lib/firebase";
-import { collection, query, where, getDocs, orderBy, doc, getDoc } from "firebase/firestore";
-import { handleFirestoreError, OperationType } from "@/lib/firestore-utils";
 import { cn } from "@/lib/utils";
 import { Order, Product } from "@/types";
 import { useWishlist } from "@/contexts/WishlistContext";
+import api from "@/services/api";
 
 export default function Profile() {
-  const { user, profile, logout } = useAuth();
+  const { user, logout } = useAuth();
   const { wishlist, toggleWishlist } = useWishlist();
   const navigate = useNavigate();
   const [orders, setOrders] = useState<Order[]>([]);
@@ -27,20 +25,10 @@ export default function Profile() {
       if (!user) return;
       setLoading(true);
       try {
-        const ordersRef = collection(db, "orders");
-        const q = query(
-          ordersRef, 
-          where("userId", "==", user.uid),
-          orderBy("createdAt", "desc")
-        );
-        const querySnapshot = await getDocs(q);
-        const ordersData = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as Order[];
-        setOrders(ordersData);
+        const response = await api.get('/orders/');
+        setOrders(response.data);
       } catch (error) {
-        handleFirestoreError(error, OperationType.LIST, "orders");
+        console.error("Error fetching orders:", error);
       } finally {
         setLoading(false);
       }
@@ -57,12 +45,9 @@ export default function Profile() {
       }
       setLoadingWishlist(true);
       try {
-        const productPromises = wishlist.map(id => getDoc(doc(db, "products", id)));
-        const productSnaps = await Promise.all(productPromises);
-        const products = productSnaps
-          .filter(snap => snap.exists())
-          .map(snap => ({ id: snap.id, ...snap.data() } as Product));
-        setWishlistProducts(products);
+        const productPromises = wishlist.map(id => api.get(`/products/${id}/`));
+        const responses = await Promise.all(productPromises);
+        setWishlistProducts(responses.map(res => res.data));
       } catch (error) {
         console.error("Error fetching wishlist products:", error);
       } finally {
@@ -83,8 +68,8 @@ export default function Profile() {
     return null;
   }
 
-  const initials = profile?.displayName 
-    ? profile.displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+  const initials = user.displayName 
+    ? user.displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
     : user.email?.slice(0, 2).toUpperCase() || 'U';
 
   return (
@@ -97,10 +82,10 @@ export default function Profile() {
                  <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center text-primary text-3xl font-black mb-4">
                    {initials}
                  </div>
-                 <h2 className="text-xl font-bold">{profile?.displayName || "Member"}</h2>
+                 <h2 className="text-xl font-bold">{user.displayName || "Member"}</h2>
                  <p className="text-sm text-muted-foreground mb-6">{user.email}</p>
                  <Badge className="bg-primary/10 text-primary hover:bg-primary/20 transition-colors uppercase tracking-widest text-[10px] font-black">
-                   {profile?.role === 'admin' ? "ADMIN" : "MEMBER"}
+                   {user.role === 'admin' ? "ADMIN" : "MEMBER"}
                  </Badge>
                  
                  <div className="w-full mt-10 space-y-2">
@@ -114,7 +99,7 @@ export default function Profile() {
                           <Heart className="w-5 h-5" /> Wishlist
                        </a>
                     </Button>
-                    {profile?.role === 'admin' && (
+                    {user.role === 'admin' && (
                       <Button variant="ghost" className="w-full justify-start gap-3 rounded-xl font-bold" asChild>
                          <Link to="/admin">
                             <ShieldCheck className="w-5 h-5" /> Admin Panel
@@ -151,7 +136,7 @@ export default function Profile() {
                                  <div>
                                     <p className="text-xs text-muted-foreground uppercase font-black tracking-widest leading-none mb-1">Order #{order.id.slice(0, 8).toUpperCase()}</p>
                                     <p className="font-bold">
-                                      {order.createdAt?.toDate().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                                      {new Date(order.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
                                     </p>
                                  </div>
                               </div>
@@ -240,10 +225,10 @@ export default function Profile() {
                     <div className="flex-1">
                        <h4 className="font-bold mb-2">Default Address</h4>
                        <p className="text-sm text-muted-foreground line-clamp-2">
-                         {profile?.address || "No address provided yet. Add one at checkout."}
+                         {user.address || "No address provided yet. Add one at checkout."}
                        </p>
-                       {profile?.phoneNumber && (
-                         <p className="text-sm text-muted-foreground mt-2 font-bold italic">{profile.phoneNumber}</p>
+                       {user.phoneNumber && (
+                         <p className="text-sm text-muted-foreground mt-2 font-bold italic">{user.phoneNumber}</p>
                        )}
                        <Button variant="link" className="p-0 h-auto mt-4 font-bold text-primary">Edit Details</Button>
                     </div>

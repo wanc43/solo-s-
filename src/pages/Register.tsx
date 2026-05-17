@@ -1,12 +1,42 @@
-import React from "react";
+import React, { useState } from "react";
 import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
-import { User, Mail, Lock, Smartphone, ArrowRight } from "lucide-react";
+import { User, Mail, Lock, ArrowRight, Loader2 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 export default function Register() {
+  const { register, error } = useAuth();
+  const navigate = useNavigate();
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    password: ""
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      await register(formData);
+      toast.success("Account created! Welcome to Solo's.");
+      navigate("/");
+    } catch (err) {
+      console.error(err);
+      toast.error("Registration failed. Email might already be in use.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="flex flex-col min-h-screen">
       <Navbar />
@@ -21,34 +51,73 @@ export default function Register() {
             <p className="text-sm text-muted-foreground">The most exclusive electronics club in Uganda.</p>
           </div>
 
-          <div className="space-y-4">
-             <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Full Name</label>
-                <div className="relative">
-                  <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input placeholder="John Doe" className="h-12 pl-11 rounded-xl" />
-                </div>
-             </div>
-             <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Email Address</label>
-                <div className="relative">
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input placeholder="name@domain.com" className="h-12 pl-11 rounded-xl" />
-                </div>
-             </div>
-             <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Password</label>
-                <div className="relative">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input type="password" placeholder="••••••••" className="h-12 pl-11 rounded-xl" />
-                </div>
-             </div>
-          </div>
+          {error && (
+            <div className="bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 p-4 rounded-xl text-xs font-bold border border-red-100 dark:border-red-900/30">
+              {error}
+            </div>
+          )}
 
-          <Button className="w-full h-14 rounded-2xl text-lg font-bold shadow-xl shadow-primary/20 group">
-             Create Account
-             <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
-          </Button>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-4">
+               <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Full Name</label>
+                  <div className="relative">
+                    <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input 
+                      name="name"
+                      placeholder="John Doe" 
+                      className="h-12 pl-11 rounded-xl"
+                      value={formData.name}
+                      onChange={handleChange}
+                      required
+                    />
+                  </div>
+               </div>
+               <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Email Address</label>
+                  <div className="relative">
+                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input 
+                      name="email"
+                      type="email"
+                      placeholder="name@domain.com" 
+                      className="h-12 pl-11 rounded-xl"
+                      value={formData.email}
+                      onChange={handleChange}
+                      required
+                    />
+                  </div>
+               </div>
+               <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Password</label>
+                  <div className="relative">
+                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input 
+                      name="password"
+                      type="password" 
+                      placeholder="••••••••" 
+                      className="h-12 pl-11 rounded-xl"
+                      value={formData.password}
+                      onChange={handleChange}
+                      required
+                    />
+                  </div>
+               </div>
+            </div>
+
+            <Button 
+              type="submit"
+              className="w-full h-14 rounded-2xl text-lg font-bold shadow-xl shadow-primary/20 group"
+              disabled={isSubmitting}
+            >
+               {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : (
+                 <>
+                   Create Account
+                   <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                 </>
+               )}
+            </Button>
+          </form>
 
           <p className="text-center text-sm text-muted-foreground">
              Already have an account?{" "}

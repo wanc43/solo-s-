@@ -1,19 +1,17 @@
 import React, { useState, useEffect } from "react";
-import { Link, Routes, Route, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { 
   LayoutDashboard, Package, ShoppingCart, Users, Settings, TrendingUp, 
-  ArrowUpRight, ArrowDownRight, PackagePlus, Bell, Search, LogOut, Database, Loader2,
-  ShieldCheck
+  PackagePlus, Bell, Search, LogOut, Database, Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { db } from "@/lib/firebase";
-import { collection, doc, writeBatch, serverTimestamp } from "firebase/firestore";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import api from "@/services/api";
 
 const PRODUCTS_SEED = [
   { name: "iPhone 15 Pro Max", brand: "Apple", price: 1199, image: "https://images.unsplash.com/photo-1696446701796-da61225697cc?w=800", rating: 4.9, category: "smartphones", stock_quantity: 50, slug: "iphone-15-pro-max", featured: true },
@@ -35,17 +33,17 @@ const SIDEBAR_ITEMS = [
 ];
 
 export default function AdminDashboard() {
-  const { user, profile, loading: authLoading } = useAuth();
+  const { user, logout, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [isSeeding, setIsSeeding] = useState(false);
 
   useEffect(() => {
-    if (!authLoading && (!user || profile?.role !== 'admin')) {
+    if (!authLoading && (!user || user.role !== 'admin')) {
       toast.error("Unauthorized access.");
       navigate("/");
     }
-  }, [user, profile, authLoading, navigate]);
+  }, [user, authLoading, navigate]);
 
   if (authLoading) {
     return (
@@ -55,25 +53,17 @@ export default function AdminDashboard() {
     );
   }
 
-  if (!user || profile?.role !== 'admin') {
+  if (!user || user.role !== 'admin') {
     return null;
   }
 
   const seedDatabase = async () => {
     setIsSeeding(true);
-    const batch = writeBatch(db);
-    
     try {
-      PRODUCTS_SEED.forEach((product) => {
-        const productRef = doc(collection(db, "products"));
-        batch.set(productRef, {
-          ...product,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
-        });
-      });
-      
-      await batch.commit();
+      // Seqential seeding for simplicity in admin panel
+      for (const product of PRODUCTS_SEED) {
+        await api.post('/products/', product);
+      }
       toast.success("Database seeded successfully!");
     } catch (error) {
       console.error("Error seeding database:", error);
@@ -81,6 +71,11 @@ export default function AdminDashboard() {
     } finally {
       setIsSeeding(false);
     }
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    navigate("/login");
   };
 
   return (
@@ -116,7 +111,11 @@ export default function AdminDashboard() {
         </ScrollArea>
 
         <div className="p-4 border-t">
-           <Button variant="ghost" className="w-full justify-start gap-3 rounded-xl hover:bg-red-50 hover:text-red-600 transition-colors">
+           <Button 
+             variant="ghost" 
+             className="w-full justify-start gap-3 rounded-xl hover:bg-red-50 hover:text-red-600 transition-colors"
+             onClick={handleLogout}
+           >
               <LogOut className="w-5 h-5" />
               Sign Out
            </Button>

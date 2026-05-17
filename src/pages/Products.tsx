@@ -1,21 +1,18 @@
 import React, { useEffect, useState, useMemo } from "react";
 import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Filter, SlidersHorizontal, Star, ShoppingBag, Heart, ChevronDown, Loader2, Eye, Truck, ShieldCheck, ArrowUpDown } from "lucide-react";
-import { motion, AnimatePresence } from "motion/react";
+import { Search, Filter, Star, ShoppingBag, Heart, Loader2, Eye, Truck, ShieldCheck, ArrowUpDown } from "lucide-react";
+import { motion } from "motion/react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useCart } from "@/contexts/CartContext";
 import { useWishlist } from "@/contexts/WishlistContext";
-import { db } from "@/lib/firebase";
-import { collection, query, getDocs, where } from "firebase/firestore";
 import { Product } from "@/types";
-import { handleFirestoreError, OperationType } from "@/lib/firestore-utils";
 import { cn } from "@/lib/utils";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import api from "@/services/api";
 
 export default function Products() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -23,6 +20,7 @@ export default function Products() {
   const { toggleWishlist, isInWishlist } = useWishlist();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
   const [sortBy, setSortBy] = useState<string>("featured");
   
@@ -43,53 +41,48 @@ export default function Products() {
   useEffect(() => {
     async function fetchProducts() {
       setLoading(true);
+      setError(null);
       try {
-        const productsRef = collection(db, "products");
-        let q = query(productsRef);
+        const params = new URLSearchParams();
+        if (categoryFilter !== "all") params.append("category", categoryFilter);
+        if (urlSearch) params.append("search", urlSearch);
         
-        const querySnapshot = await getDocs(q);
-        const productsData = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as Product[];
-        
-        setProducts(productsData);
-      } catch (error) {
-        handleFirestoreError(error, OperationType.LIST, "products");
+        const response = await api.get(`/products/?${params.toString()}`);
+        setProducts(response.data);
+      } catch (err) {
+        console.error("Error fetching products:", err);
+        setError("Failed to load products. Please try again later.");
       } finally {
         setLoading(false);
       }
     }
 
     fetchProducts();
-  }, []);
+  }, [categoryFilter, urlSearch]);
 
-  const brands = Array.from(new Set(products.map(p => p.brand))).sort() as string[];
+  const brands = useMemo(() => Array.from(new Set(products.map(p => p.brand))).sort() as string[], [products]);
 
   const filteredProducts = useMemo(() => {
     return products.filter(p => {
-      const matchesCategory = categoryFilter === "all" || p.category === categoryFilter;
-      const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                           p.brand.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesBrand = selectedBrands.length === 0 || selectedBrands.includes(p.brand);
       const matchesPrice = p.price >= priceRange[0] && p.price <= priceRange[1];
       const matchesRating = p.rating >= minRating;
       
-      return matchesCategory && matchesSearch && matchesBrand && matchesPrice && matchesRating;
+      return matchesBrand && matchesPrice && matchesRating;
     }).sort((a, b) => {
       if (sortBy === "price-low") return a.price - b.price;
       if (sortBy === "price-high") return b.price - a.price;
       if (sortBy === "rating") return b.rating - a.rating;
       if (sortBy === "newest") {
-        const dateA = a.createdAt?.seconds || 0;
-        const dateB = b.createdAt?.seconds || 0;
+        const dateA = new Date(a.createdAt).getTime() || 0;
+        const dateB = new Date(b.createdAt).getTime() || 0;
         return dateB - dateA;
       }
       const featA = a.featured ? 1 : 0;
       const featB = b.featured ? 1 : 0;
       return featB - featA;
     });
-  }, [products, categoryFilter, searchTerm, selectedBrands, priceRange, minRating, sortBy]);
+  }, [products, selectedBrands, priceRange, minRating, sortBy]);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;

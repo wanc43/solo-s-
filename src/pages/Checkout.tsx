@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { CreditCard, Truck, ShieldCheck, MapPin, Phone, User, Landmark, Smartphone, ArrowRight, CheckCircle2 } from "lucide-react";
+import { CreditCard, Truck, ShieldCheck, MapPin, Phone, User, Smartphone, ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate, Link } from "react-router-dom";
@@ -12,10 +12,7 @@ import { toast } from "sonner";
 import { motion, AnimatePresence } from "motion/react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { db } from "@/lib/firebase";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
-import { handleFirestoreError, OperationType } from "@/lib/firestore-utils";
-import axios from "axios";
+import api from "@/services/api";
 
 export default function Checkout() {
   const { cart, cartTotal, clearCart } = useCart();
@@ -45,44 +42,30 @@ export default function Checkout() {
     setIsProcessing(true);
     try {
       const orderData = {
-        userId: user.uid,
-        items: cart,
-        totalAmount: cartTotal,
-        paymentMethod,
-        shippingDetails: {
-          fullName: formData.fullName,
+        items: cart.map(item => ({
+          product_id: item.productId,
+          quantity: item.quantity
+        })),
+        total_amount: cartTotal,
+        payment_method: paymentMethod,
+        shipping_details: {
+          full_name: formData.fullName,
           phone: formData.phone,
           address: formData.address,
           city: formData.city,
           district: formData.district
-        },
-        status: 'pending',
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
+        }
       };
 
-      const docRef = await addDoc(collection(db, "orders"), orderData);
-      const newOrderId = docRef.id;
-      setOrderId(newOrderId);
+      const response = await api.post("/orders/", orderData);
+      setOrderId(response.data.id);
       
-      // Send confirmation email
-      try {
-        await axios.post("/api/orders/confirm", {
-          orderId: newOrderId,
-          userEmail: user.email,
-          items: cart.map(item => ({ name: item.name, quantity: item.quantity, price: item.price })),
-          totalAmount: cartTotal
-        });
-      } catch (emailError) {
-        console.error("Failed to send confirmation email:", emailError);
-        // Don't fail the order just because the email failed
-      }
-
       toast.success("Order placed successfully!");
       clearCart();
       setStep(3);
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, "orders");
+      console.error("Order failed:", error);
+      toast.error("Failed to place order. Please try again.");
     } finally {
       setIsProcessing(false);
     }

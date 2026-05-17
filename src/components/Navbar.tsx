@@ -1,62 +1,48 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ShoppingCart, User, Search, Menu, X, Heart, Laptop, Smartphone, Headphones, Watch, Trash2, Plus, Minus } from "lucide-react";
+import { ShoppingCart, User, Search, Heart, Trash2, Plus, Minus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { motion } from "motion/react";
+import { motion, useScroll, useSpring } from "motion/react";
 import { cn } from "@/lib/utils";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWishlist } from "@/contexts/WishlistContext";
-import { useScroll, useSpring } from "motion/react";
-import { db } from "@/lib/firebase";
-import { collection, getDocs } from "firebase/firestore";
 import { Product } from "@/types";
+import api from "@/services/api";
 
 export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [suggestions, setSuggestions] = useState<Product[]>([]);
-  const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const { cart, cartTotal, removeFromCart, updateQuantity } = useCart();
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const { wishlist } = useWishlist();
   const navigate = useNavigate();
   
   useEffect(() => {
-    async function fetchAllProducts() {
-      try {
-        const productsRef = collection(db, "products");
-        const querySnapshot = await getDocs(productsRef);
-        const productsData = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as Product[];
-        setAllProducts(productsData);
-      } catch (error) {
-        console.error("Error fetching products for search:", error);
-      }
-    }
-    fetchAllProducts();
-  }, []);
-
-  useEffect(() => {
     if (searchQuery.trim().length > 1) {
-      const filtered = allProducts.filter(p => 
-        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.brand.toLowerCase().includes(searchQuery.toLowerCase())
-      ).slice(0, 5);
-      setSuggestions(filtered);
-      setShowSuggestions(true);
+      const fetchSuggestions = async () => {
+        try {
+          const response = await api.get(`/products/?search=${searchQuery}&limit=5`);
+          setSuggestions(response.data.slice(0, 5));
+          setShowSuggestions(true);
+        } catch (error) {
+          console.error("Error fetching suggestions:", error);
+        }
+      };
+      
+      const debounceTimer = setTimeout(fetchSuggestions, 300);
+      return () => clearTimeout(debounceTimer);
     } else {
       setSuggestions([]);
       setShowSuggestions(false);
     }
-  }, [searchQuery, allProducts]);
+  }, [searchQuery]);
   
   const { scrollYProgress } = useScroll();
   const scaleX = useSpring(scrollYProgress, {
@@ -159,7 +145,7 @@ export default function Navbar() {
             <Link to={user ? "/profile" : "/login"}>
               {user ? (
                 <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-[10px] font-black">
-                  {profile?.displayName?.slice(0, 2).toUpperCase() || user.email?.slice(0, 2).toUpperCase()}
+                  {(user.displayName || user.email)?.slice(0, 2).toUpperCase()}
                 </div>
               ) : (
                 <User className="w-5 h-5" />

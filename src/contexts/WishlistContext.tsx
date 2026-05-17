@@ -1,9 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { useAuth } from "./AuthContext";
-import { db } from "@/lib/firebase";
-import { doc, getDoc, setDoc, onSnapshot } from "firebase/firestore";
-import { handleFirestoreError, OperationType } from "@/lib/firestore-utils";
 import { toast } from "sonner";
+import api from "@/services/api";
 
 interface WishlistContextType {
   wishlist: string[];
@@ -26,22 +24,19 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    setLoading(true);
-    const wishlistRef = doc(db, "wishlists", user.uid);
-
-    const unsubscribe = onSnapshot(wishlistRef, (docSnap) => {
-      if (docSnap.exists()) {
-        setWishlist(docSnap.data().productIds || []);
-      } else {
-        setWishlist([]);
+    const fetchWishlist = async () => {
+      setLoading(true);
+      try {
+        const response = await api.get('/wishlist/');
+        setWishlist(response.data.productIds || []);
+      } catch (error) {
+        console.error("Failed to fetch wishlist", error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, `wishlists/${user.uid}`);
-      setLoading(false);
-    });
+    };
 
-    return () => unsubscribe();
+    fetchWishlist();
   }, [user]);
 
   const toggleWishlist = async (productId: string) => {
@@ -50,25 +45,22 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const newWishlist = wishlist.includes(productId)
+    const isRemoving = wishlist.includes(productId);
+    const newWishlist = isRemoving
       ? wishlist.filter(id => id !== productId)
       : [...wishlist, productId];
 
     try {
-      const wishlistRef = doc(db, "wishlists", user.uid);
-      await setDoc(wishlistRef, {
-        userId: user.uid,
-        productIds: newWishlist,
-        updatedAt: new Date().toISOString()
-      });
+      await api.post('/wishlist/toggle/', { productId });
+      setWishlist(newWishlist);
       
-      if (wishlist.includes(productId)) {
+      if (isRemoving) {
         toast.success("Removed from wishlist");
       } else {
         toast.success("Added to wishlist");
       }
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `wishlists/${user.uid}`);
+      console.error("Failed to update wishlist", error);
       toast.error("Failed to update wishlist");
     }
   };

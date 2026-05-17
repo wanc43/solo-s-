@@ -3,7 +3,7 @@ import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Star, ShoppingBag, Heart, Truck, ShieldCheck, Zap, ArrowLeft, CheckCircle2, ChevronRight, Info, Loader2, Minus, Plus, Facebook, Twitter, MessageCircle, Share2 } from "lucide-react";
+import { Star, ShoppingBag, Heart, Truck, ShieldCheck, ArrowLeft, ChevronRight, Info, Loader2, Minus, Plus, Facebook, Twitter, MessageCircle, Share2 } from "lucide-react";
 import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -11,15 +11,13 @@ import { useWishlist } from "@/contexts/WishlistContext";
 import { toast } from "sonner";
 import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
-import { db } from "@/lib/firebase";
-import { doc, getDoc, collection, query, where, getDocs, addDoc, serverTimestamp, orderBy } from "firebase/firestore";
 import { Product, Review } from "@/types";
-import { handleFirestoreError, OperationType } from "@/lib/firestore-utils";
+import api from "@/services/api";
 
 export default function ProductDetail() {
   const { id } = useParams();
   const { addToCart } = useCart();
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const { toggleWishlist, isInWishlist } = useWishlist();
   const navigate = useNavigate();
   const location = useLocation();
@@ -44,63 +42,44 @@ export default function ProductDetail() {
       if (!id) return;
       setLoading(true);
       try {
-        const productRef = doc(db, "products", id);
-        const productDoc = await getDoc(productRef);
-        
-        if (productDoc.exists()) {
-          const data = { id: productDoc.id, ...productDoc.data() } as Product;
-          setProduct(data);
-          setSelectedImage(data.image);
+        const response = await api.get(`/products/${id}/`);
+        const data = response.data as Product;
+        setProduct(data);
+        setSelectedImage(data.image);
 
-          // Fetch reviews
-          const reviewsRef = collection(db, "reviews");
-          const q = query(reviewsRef, where("productId", "==", id), orderBy("createdAt", "desc"));
-          const reviewsSnap = await getDocs(q);
-          setReviews(reviewsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Review[]);
+        // Fetch reviews (Assuming /products/{id}/reviews/ or similar)
+        try {
+          const reviewsResponse = await api.get(`/products/${id}/reviews/`);
+          setReviews(reviewsResponse.data);
+        } catch (e) {
+          console.warn("Reviews endpoint not found, using data if available", e);
+        }
 
-          // Fetch Related Products
-          const relatedRef = collection(db, "products");
-          const relatedQuery = query(
-            relatedRef, 
-            where("category", "==", data.category), 
-            where("__name__", "!=", id)
-          );
-          const relatedSnap = await getDocs(relatedQuery);
-          let related = relatedSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Product[];
-          
-          // If not enough from same category, try brand or just recent
-          if (related.length < 4) {
-             const brandQuery = query(
-               relatedRef, 
-               where("brand", "==", data.brand),
-               where("__name__", "!=", id)
-             );
-             const brandSnap = await getDocs(brandQuery);
-             const brandRelated = brandSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Product[];
-             const combined = [...related, ...brandRelated.filter(b => !related.find(r => r.id === b.id))];
-             related = combined.slice(0, 4);
-          } else {
-            related = related.slice(0, 4);
-          }
-          setRelatedProducts(related);
+        // Fetch Related Products (Assume /products/ supports category filtering)
+        try {
+          const relatedResponse = await api.get(`/products/?category=${data.category}`);
+          const relatedData = relatedResponse.data.filter((p: Product) => p.id !== id).slice(0, 4);
+          setRelatedProducts(relatedData);
+        } catch (e) {
+          console.error("Failed to fetch related products", e);
+        }
 
-          // Check if purchased
-          if (user) {
-            const ordersRef = collection(db, "orders");
-            const ordersQuery = query(ordersRef, where("userId", "==", user.uid), where("status", "==", "delivered"));
-            const ordersSnap = await getDocs(ordersQuery);
-            const purchased = ordersSnap.docs.some(doc => {
-              const orderData = doc.data();
-              return orderData.items.some((item: any) => item.productId === id);
-            });
+        // Check if purchased
+        if (user) {
+          try {
+            const ordersResponse = await api.get('/orders/');
+            const purchased = ordersResponse.data.some((order: any) => 
+               order.items.some((item: any) => item.productId === id) && order.status === 'delivered'
+            );
             setHasPurchased(purchased);
+          } catch (e) {
+            console.error("Failed to check purchase history", e);
           }
-        } else {
-          toast.error("Product not found");
-          navigate("/products");
         }
       } catch (error) {
-        handleFirestoreError(error, OperationType.GET, `product-data/${id}`);
+        console.error("Error fetching product data:", error);
+        toast.error("Product not found");
+        navigate("/products");
       } finally {
         setLoading(false);
       }
@@ -116,20 +95,16 @@ export default function ProductDetail() {
     setSubmittingReview(true);
     try {
       const reviewData = {
-        productId: id,
-        userId: user.uid,
-        userName: profile?.displayName || user.email?.split("@")[0] || "Anonymous",
         rating: newReview.rating,
         comment: newReview.comment,
-        createdAt: serverTimestamp()
       };
 
-      const docRef = await addDoc(collection(db, "reviews"), reviewData);
-      setReviews([{ id: docRef.id, ...reviewData, createdAt: new Date() } as unknown as Review, ...reviews]);
+      const response = await api.post(`/products/${id}/reviews/`, reviewData);
+      setReviews([response.data, ...reviews]);
       setNewReview({ rating: 5, comment: "" });
       toast.success("Review submitted successfully");
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, "reviews");
+      console.error("Failed to submit review", error);
       toast.error("Failed to submit review");
     } finally {
       setSubmittingReview(false);

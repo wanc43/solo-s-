@@ -1,12 +1,38 @@
-import React from "react";
+import React, { useState } from "react";
 import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Link } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { motion } from "motion/react";
-import { Smartphone, Mail, Lock, ArrowRight, Github } from "lucide-react";
+import { Mail, Lock, ArrowRight, Loader2 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 export default function Login() {
+  const { login, error } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const from = location.state?.from?.pathname || "/";
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      await login({ email, password });
+      toast.success("Welcome to Solo's Phones!");
+      navigate(from, { replace: true });
+    } catch (err) {
+      console.error(err);
+      toast.error("Invalid credentials. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="flex flex-col min-h-screen">
       <Navbar />
@@ -22,45 +48,60 @@ export default function Login() {
             <p className="text-sm text-muted-foreground">Login to access your orders and wishlist.</p>
           </div>
 
-          <div className="space-y-4">
-            <Button variant="outline" className="w-full h-12 rounded-xl gap-3 font-bold border-zinc-200 dark:border-zinc-800">
-               <img src="https://www.google.com/favicon.ico" className="w-4 h-4" />
-               Continue with Google
-            </Button>
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-zinc-200 dark:border-zinc-800" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase font-black tracking-widest bg-card px-2 text-muted-foreground">
-                Or email
-              </div>
+          {error && (
+            <div className="bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 p-4 rounded-xl text-xs font-bold border border-red-100 dark:border-red-900/30">
+              {error}
             </div>
-          </div>
+          )}
 
-          <div className="space-y-4">
-             <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Email Address</label>
-                <div className="relative">
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input placeholder="name@domain.com" className="h-12 pl-11 rounded-xl" />
-                </div>
-             </div>
-             <div className="space-y-2">
-                <div className="flex justify-between items-center px-1">
-                   <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Password</label>
-                   <Link to="/forgot" className="text-[10px] font-black uppercase tracking-widest text-primary hover:underline">Forgot?</Link>
-                </div>
-                <div className="relative">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input type="password" placeholder="••••••••" className="h-12 pl-11 rounded-xl" />
-                </div>
-             </div>
-          </div>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-4">
+               <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Email Address</label>
+                  <div className="relative">
+                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input 
+                      type="email"
+                      placeholder="name@domain.com" 
+                      className="h-12 pl-11 rounded-xl"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                    />
+                  </div>
+               </div>
+               <div className="space-y-2">
+                  <div className="flex justify-between items-center px-1">
+                     <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Password</label>
+                     <Link to="/forgot" className="text-[10px] font-black uppercase tracking-widest text-primary hover:underline">Forgot?</Link>
+                  </div>
+                  <div className="relative">
+                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input 
+                      type="password" 
+                      placeholder="••••••••" 
+                      className="h-12 pl-11 rounded-xl"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                    />
+                  </div>
+               </div>
+            </div>
 
-          <Button className="w-full h-14 rounded-2xl text-lg font-bold shadow-xl shadow-primary/20 group">
-             Sign In
-             <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
-          </Button>
+            <Button 
+              type="submit"
+              className="w-full h-14 rounded-2xl text-lg font-bold shadow-xl shadow-primary/20 group"
+              disabled={isSubmitting}
+            >
+               {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : (
+                 <>
+                   Sign In
+                   <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                 </>
+               )}
+            </Button>
+          </form>
 
           <p className="text-center text-sm text-muted-foreground">
              Don't have an account?{" "}
